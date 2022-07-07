@@ -1,20 +1,49 @@
-let ajax = new XMLHttpRequest();
-const rootElement = document.getElementById("root");
-const content = document.createElement("div");
+type Store = {
+  currentPage: number;
+  feeds: NewsFeed[];
+};
+
+type News = {
+  id: number;
+  time_ago: string;
+  title: string;
+  url: string;
+  user: string;
+  content: string;
+};
+
+type NewsFeed = News & {
+  comments_count: number;
+  points: number;
+  read?: boolean;
+};
+
+type NewsDetail = News & {
+  comments: NewsComment[];
+};
+
+type NewsComment = News & {
+  comments: NewsComment[];
+  level: number;
+};
+
+const rootElement: HTMLElement | null = document.getElementById("root");
+let ajax: XMLHttpRequest = new XMLHttpRequest();
 const newsUrl = "https://api.hnpwa.com/v0/news/1.json";
 const contentUrl = "https://api.hnpwa.com/v0/item/@id.json";
-const store = {
+const store: Store = {
   currentPage: 1,
   feeds: [],
 };
 
-const ajaxRequester = (url) => {
+const ajaxRequester = <AjaxResponse>(url: string): AjaxResponse => {
   ajax.open("GET", url, false);
   ajax.send();
+
   return JSON.parse(ajax.response);
 };
 
-const makeFeeds = (feeds) => {
+const makeFeeds = (feeds: NewsFeed[]): NewsFeed[] => {
   for (let i = 0; i < feeds.length; i++) {
     feeds[i].read = false;
   }
@@ -22,8 +51,16 @@ const makeFeeds = (feeds) => {
   return feeds;
 };
 
-function newsFeed() {
-  let newsFeeds = store.feeds;
+const updateView = (html: string): void => {
+  if (rootElement) {
+    rootElement.innerHTML = html;
+  } else {
+    console.error("최상위 컨테이너가 없어서 UI를 진행하지 못합니다");
+  }
+};
+
+function newsFeed(): void {
+  let newsFeeds: NewsFeed[] = store.feeds;
 
   const newsList = [];
   let template = `
@@ -52,11 +89,11 @@ function newsFeed() {
   `;
 
   if (newsFeeds.length === 0) {
-    newsFeeds = store.feeds = makeFeeds(ajaxRequester(newsUrl));
+    newsFeeds = store.feeds = makeFeeds(ajaxRequester<NewsFeed[]>(newsUrl));
   }
 
   for (let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++) {
-    const validNewsFeed = newsFeeds[i];
+    const validNewsFeed: NewsFeed = newsFeeds[i];
     const { id, title, comments_count, user, points, time_ago, read } =
       validNewsFeed;
 
@@ -88,19 +125,21 @@ function newsFeed() {
   template = template.replace("{{__news_feed__}}", newsList.join(""));
   template = template.replace(
     "{{__prev_page__}}",
-    store.currentPage > 1 ? store.currentPage - 1 : 1
+    String(store.currentPage > 1 ? store.currentPage - 1 : 1)
   );
   template = template.replace(
     "{{__next_page__}}",
-    store.currentPage > 3 ? store.currentPage + 1 : 3
+    String(store.currentPage + 1)
   );
 
-  rootElement.innerHTML = template;
+  updateView(template);
 }
 
 function newsDetail() {
   const id = location.hash.substring(7);
-  const newsContent = ajaxRequester(contentUrl.replace("@id", id));
+  const newsContent: NewsDetail = ajaxRequester<NewsDetail>(
+    contentUrl.replace("@id", id)
+  );
 
   const { title, content } = newsContent;
 
@@ -140,35 +179,36 @@ function newsDetail() {
     }
   }
 
-  function makeComment(comments, called = 0) {
-    const commentString = [];
-
-    for (let i = 0; i < comments.length; i++) {
-      commentString.push(`
-            <div style="padding-left : ${called * 40}px" class="mt-4">
-                <div class="text-gray-400">
-                    <i class="fa fa-sort-up mr-2"></i>
-                    <strong>${comments[i].user}</strong> ${comments[i].time_ago}
-                </div>
-                <p class="text-gray-700">${comments[i].content}</p>
-            </div>       
-        `);
-
-      if (comments[i].comments.length > 0) {
-        commentString.push(makeComment(comments[i].comments, called + 1));
-      }
-    }
-
-    return commentString.join("");
-  }
-
-  rootElement.innerHTML = template.replace(
-    "{{__comments__}}",
-    makeComment(newsContent.comments)
+  updateView(
+    template.replace("{{__comments__}}", makeComment(newsContent.comments))
   );
 }
 
-function router() {
+function makeComment(comments: NewsComment[]): string {
+  const commentString = [];
+
+  for (let i = 0; i < comments.length; i++) {
+    const validComment: NewsComment = comments[i];
+
+    commentString.push(`
+          <div style="padding-left : ${validComment.level * 40}px" class="mt-4">
+              <div class="text-gray-400">
+                  <i class="fa fa-sort-up mr-2"></i>
+                  <strong>${validComment.user}</strong> ${validComment.time_ago}
+              </div>
+              <p class="text-gray-700">${validComment.content}</p>
+          </div>       
+      `);
+
+    if (validComment.comments.length > 0) {
+      commentString.push(makeComment(validComment.comments));
+    }
+  }
+
+  return commentString.join("");
+}
+
+function router(): void {
   const routePath = location.hash;
 
   if (routePath === "") {
