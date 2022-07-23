@@ -1,6 +1,7 @@
+import { newsUrl } from "../config";
 import { NewsFeedApi } from "../core/api";
 import View from "../core/view";
-import { NewsFeed } from "../types";
+import { NewsFeed, NewsStore } from "../types";
 
 const template = `
 
@@ -30,25 +31,25 @@ const template = `
 
 export default class NewsFeedView extends View {
   private api: NewsFeedApi;
-  private feeds: NewsFeed[];
+  private store: NewsStore;
 
-  constructor(containerId: string) {
+  constructor(containerId: string, store: NewsStore) {
     super(containerId, template);
 
-    this.api = new NewsFeedApi();
-    this.feeds = window.store.feeds;
-
-    if (this.feeds.length === 0) {
-      this.feeds = window.store.feeds = this.api.getData();
-      this.makeFeeds();
-    }
+    this.store = store;
+    this.api = new NewsFeedApi(newsUrl);
   }
 
-  render(): void {
-    window.store.currentPage = Number(location.hash.substring(7)) || 1;
+  render = async (): Promise<void> => {
+    this.store.currentPage = Number(window.location.hash.substring(7) || 1);
+
+    if (!this.store.hasFeeds) {
+      this.store.setFeeds(await this.api.getData());
+    }
+
     for (
-      let i = (window.store.currentPage - 1) * 10;
-      i < window.store.currentPage * 10;
+      let i = (this.store.currentPage - 1) * 10;
+      i < this.store.currentPage * 10;
       i++
     ) {
       const {
@@ -59,46 +60,37 @@ export default class NewsFeedView extends View {
         points,
         time_ago,
         read,
-      }: NewsFeed = this.feeds[i];
+      }: NewsFeed = this.store.getFeed(i);
 
       this.addHtml(`
-        <div class="p-6 ${
-          read ? "bg-red-500" : "bg-white"
-        } mt-6 rounded-lg shadow-md transition-colors duration-500 hover:bg-green-100">
-            <div class="flex">
-                <div class="flex-auto">
-                    <a href="#/show/${id}">
-                        ${title}
-                    </a>
-                </div>
-                <div class="text-center text-sm">
-                    <div class="w-10 text-white bg-green-300 rounded-lg px-0 py-2">${comments_count}</div>
-                </div>
-            </div>
-            <div class="flex mt-3">
-                <div class="grid grid-cols-3 text-sm text-gray-500">
-                    <div><i class="fas fa-user mr-1"></i>${user}</div>
-                    <div><i class="fas fa-heart mr-1"></i>${points}</div>
-                    <div><i class="fas fa-clock mr-1"></i>${time_ago}</div>
-                </div> 
-            </div>
-        </div>   
-        `);
+          <div class="p-6 ${
+            read ? "bg-red-500" : "bg-white"
+          } mt-6 rounded-lg shadow-md transition-colors duration-500 hover:bg-green-100">
+              <div class="flex">
+                  <div class="flex-auto">
+                      <a href="#/show/${id}">
+                          ${title}
+                      </a>
+                  </div>
+                  <div class="text-center text-sm">
+                      <div class="w-10 text-white bg-green-300 rounded-lg px-0 py-2">${comments_count}</div>
+                  </div>
+              </div>
+              <div class="flex mt-3">
+                  <div class="grid grid-cols-3 text-sm text-gray-500">
+                      <div><i class="fas fa-user mr-1"></i>${user}</div>
+                      <div><i class="fas fa-heart mr-1"></i>${points}</div>
+                      <div><i class="fas fa-clock mr-1"></i>${time_ago}</div>
+                  </div> 
+              </div>
+          </div>   
+          `);
     }
 
     this.setTemplateData("news_feed", this.getHtml());
-    this.setTemplateData(
-      "prev_page",
-      String(window.store.currentPage > 1 ? window.store.currentPage - 1 : 1)
-    );
-    this.setTemplateData("next_page", String(window.store.currentPage + 1));
+    this.setTemplateData("prev_page", String(this.store.prevPage));
+    this.setTemplateData("next_page", String(this.store.nextPage));
 
     this.updateView();
-  }
-
-  private makeFeeds() {
-    for (let i = 0; i < this.feeds.length; i++) {
-      this.feeds[i].read = false;
-    }
-  }
+  };
 }

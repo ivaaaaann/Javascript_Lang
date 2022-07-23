@@ -1,6 +1,7 @@
+import { contentUrl } from "../config";
 import { NewsDetailApi } from "../core/api";
 import View from "../core/view";
-import { NewsComment, NewsDetail } from "../types";
+import { NewsComment, NewsDetail, NewsStore } from "../types";
 
 const template = `
       <div class="bg-gray-600 min-h-screen pb-8">
@@ -32,30 +33,27 @@ const template = `
   `;
 
 export default class NewsDetailView extends View {
-  constructor(containerId: string) {
+  private store: NewsStore;
+  constructor(containerId: string, store: NewsStore) {
     super(containerId, template);
+    this.store = store;
   }
 
-  render() {
+  render = async (): Promise<void> => {
     const id = location.hash.substring(7);
-    const api = new NewsDetailApi();
-    const newsContent: NewsDetail = api.getData(id);
+    const api = new NewsDetailApi(contentUrl.replace("@id", id));
+    const response = await api.getData();
+    const newsContent: NewsDetail = response;
 
-    for (let i = 0; i < window.store.feeds.length; i++) {
-      if (window.store.feeds[i].id === Number(id)) {
-        window.store.feeds[i].read = true;
-        break;
-      }
-    }
-
+    this.store.makeRead(Number(id));
     this.setTemplateData("comments", this.makeComment(newsContent.comments));
-    this.setTemplateData("currentPage", String(window.store.currentPage));
+    this.setTemplateData("currentPage", String(this.store.currentPage));
     this.setTemplateData("title", newsContent.title);
     this.setTemplateData("content", newsContent.content);
     this.updateView();
-  }
+  };
 
-  makeComment(comments: NewsComment[]): string {
+  private makeComment(comments: NewsComment[]): string {
     for (let i = 0; i < comments.length; i++) {
       const validComment: NewsComment = comments[i];
 
