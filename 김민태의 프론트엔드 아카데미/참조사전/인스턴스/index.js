@@ -52,7 +52,7 @@ class CartV2 {
   };
 
   addItem = (item) => {
-    this.cart.push({ ...item, id: this.getNewId });
+    this.cart.push({ ...item, id: this.getNewId() });
   };
 
   clearCart = () => {
@@ -60,3 +60,11 @@ class CartV2 {
     this.currentId = 0;
   };
 }
+
+const shoppingCartV2 = new CartV2();
+
+shoppingCartV2.addItem(CartV2.createItem("수박", 8000));
+shoppingCartV2.addItem(CartV2.createItem("사과", 12000));
+shoppingCartV2.addItem(CartV2.createItem("두부", 2000));
+
+console.log(shoppingCartV2.cart);
