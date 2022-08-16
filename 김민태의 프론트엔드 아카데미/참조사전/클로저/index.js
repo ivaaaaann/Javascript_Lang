@@ -12,6 +12,6 @@ const inc = increment();
 // increment();
 // increment();
 
-inc();
-inc();
-inc();
+// inc();
+// inc();
+// inc();
